@@ -315,7 +315,9 @@ async def _process_chat_turn(user: Dict[str, Any], body: Dict[str, Any]) -> Tupl
     if len(prompt) > 16000:
         return 400, {"status": "error", "error": "Input prompt exceeds maximum limit (16,000 chars)."}
 
-    model_id = (body.get("model_id") or user.get("preferences", {}).get("preferred_model") or "nova-venom-core-v1").strip()
+    model_id = (body.get("model_id") or user.get("preferences", {}).get("preferred_model") or "venom-pro-v1").strip()
+    if model_id == "nova-venom-core-v1":
+        model_id = "venom-pro-v1"
     conv_id = body.get("conversation_id")
     use_web_search = bool(body.get("use_web_search", False))
 
@@ -323,10 +325,11 @@ async def _process_chat_turn(user: Dict[str, Any], body: Dict[str, Any]) -> Tupl
     cur = conn.cursor()
     cur.execute("SELECT * FROM configured_models WHERE model_id = ?", (model_id,))
     mdl_row = cur.fetchone()
-    if not mdl_row:
-        conn.close()
-        return 400, {"status": "error", "error": f"Model '{model_id}' is not registered."}
-    provider = mdl_row["provider"]
+    if mdl_row:
+        provider = mdl_row["provider"]
+    else:
+        model_id = "venom-pro-v1"
+        provider = "venom_engine"
 
     now = utc_now()
     if conv_id:
@@ -365,7 +368,7 @@ async def _process_chat_turn(user: Dict[str, Any], body: Dict[str, Any]) -> Tupl
     rnd_match = re.search(r"(rnd_[A-Za-z0-9_]{15,})", prompt)
     artifact = None
 
-    if gh_match and provider == "nova_local":
+    if gh_match and provider in ("venom_engine", "nova_local"):
         dep = VenomAutonomousBuilder.auto_deploy_github_and_render(
             github_token=gh_match.group(1),
             repo_name="venom-ai-himanshu",
@@ -382,9 +385,9 @@ async def _process_chat_turn(user: Dict[str, Any], body: Dict[str, Any]) -> Tupl
                 + (f"- **⚡ Live Render URL**: [{dep['render_live_url']}]({dep['render_live_url']})\n" if dep.get("render_live_url") else "")
                 + f"\n#### Execution Log:\n" + "\n".join(f"- {s}" for s in dep.get("steps", []))
             )
-            gen = {"status": "ok", "content": gen_content, "model_verified": "nova-venom-core-v1", "provider": "nova_local", "latency_ms": 420.0}
+            gen = {"status": "ok", "content": gen_content, "model_verified": model_id, "provider": "venom_engine", "latency_ms": 420.0}
         else:
-            gen = {"status": "ok", "content": f"### ❌ GitHub Auto-Deploy Error\n`{dep.get('error')}`", "model_verified": "nova-venom-core-v1", "provider": "nova_local", "latency_ms": 120.0}
+            gen = {"status": "ok", "content": f"### ❌ GitHub Auto-Deploy Error\n`{dep.get('error')}`", "model_verified": model_id, "provider": "venom_engine", "latency_ms": 120.0}
     else:
         web_sources = None
         if use_web_search:
@@ -401,7 +404,7 @@ async def _process_chat_turn(user: Dict[str, Any], body: Dict[str, Any]) -> Tupl
         )
 
         # Also check if user asked to build a Website, App, Telegram Bot, or OSINT Bot -> attach live Arena Artifact!
-        if gen["status"] == "ok" and provider == "nova_local":
+        if gen["status"] == "ok" and provider in ("venom_engine", "nova_local"):
             artifact = VenomAutonomousBuilder.detect_and_build_artifact(prompt)
             if artifact:
                 gen["content"] += (
@@ -602,8 +605,8 @@ async def handle_public_venom_api(request: web.Request):
         return web.json_response({"status": "error", "error": "Provide 'prompt' in JSON body."}, status=400)
 
     gen = MultiModelEngine.generate(
-        model_id="nova-venom-core-v1",
-        provider="nova_local",
+        model_id="venom-pro-v1",
+        provider="venom_engine",
         messages=[{"role": "user", "content": prompt}],
     )
     artifact = VenomAutonomousBuilder.detect_and_build_artifact(prompt)
