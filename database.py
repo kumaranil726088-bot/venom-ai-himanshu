@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "nova_venom.db")
+DB_PATH = os.path.join(BASE_DIR, "venom_ai.db")
 SCHEMA_PATH = os.path.join(BASE_DIR, "schema.sql")
 
 
@@ -32,13 +32,38 @@ def verify_password(password: str, stored_hash: str) -> bool:
         return False
 
 
+# 100% HIMANSHU'S OWN VENOM AI MODELS — ALL WORKING OUT OF THE BOX (ZERO EXTERNAL KEYS NEEDED)
 DEFAULT_MODELS = [
     {
-        "id": "mdl_nova_local",
-        "model_id": "nova-venom-core-v1",
-        "display_name": "NOVA / Venom Core v1 (Built-in Local Engine)",
-        "provider": "nova_local",
-        "capabilities": ["chat", "code", "math", "documents", "osint", "streaming", "hindi_hinglish"],
+        "id": "1_mdl_venom_pro",
+        "model_id": "venom-pro-v1",
+        "display_name": "⚡ VENOM AI Pro v1 (Flagship Coding & Builder Engine — by Himanshu)",
+        "provider": "venom_engine",
+        "capabilities": ["chat", "code", "website_builder", "telegram_bot", "math", "documents", "osint", "streaming", "hindi_hinglish"],
+        "env_key_name": "",
+        "is_enabled": 1,
+        "is_free_tier": 1,
+        "max_input_tokens": 16384,
+        "max_output_tokens": 8192,
+    },
+    {
+        "id": "2_mdl_venom_coder",
+        "model_id": "venom-coder-x",
+        "display_name": "💻 VENOM Coder-X (Autonomous Website, App & Telegram Bot Engine)",
+        "provider": "venom_engine",
+        "capabilities": ["code", "website_builder", "app_builder", "telegram_bot", "osint", "debugging", "streaming"],
+        "env_key_name": "",
+        "is_enabled": 1,
+        "is_free_tier": 1,
+        "max_input_tokens": 16384,
+        "max_output_tokens": 8192,
+    },
+    {
+        "id": "3_mdl_venom_turbo",
+        "model_id": "venom-turbo-fast",
+        "display_name": "🚀 VENOM Turbo Fast (Ultra-Fast <10ms Instant Reasoning & Math)",
+        "provider": "venom_engine",
+        "capabilities": ["chat", "fast_reasoning", "math", "code", "hindi_hinglish", "streaming"],
         "env_key_name": "",
         "is_enabled": 1,
         "is_free_tier": 1,
@@ -46,52 +71,16 @@ DEFAULT_MODELS = [
         "max_output_tokens": 4096,
     },
     {
-        "id": "mdl_claude_sonnet",
-        "model_id": "claude-3-5-sonnet-latest",
-        "display_name": "Anthropic Claude 3.5 Sonnet (Official API)",
-        "provider": "anthropic",
-        "capabilities": ["chat", "code", "vision", "analysis", "streaming"],
-        "env_key_name": "ANTHROPIC_API_KEY",
-        "is_enabled": 1,
-        "is_free_tier": 0,
-        "max_input_tokens": 8192,
-        "max_output_tokens": 4096,
-    },
-    {
-        "id": "mdl_gemini_flash",
-        "model_id": "gemini-2.5-flash",
-        "display_name": "Google Gemini 2.5 Flash (Official API)",
-        "provider": "gemini",
-        "capabilities": ["chat", "code", "vision", "fast_reasoning", "streaming"],
-        "env_key_name": "GEMINI_API_KEY",
+        "id": "4_mdl_venom_research",
+        "model_id": "venom-research-web",
+        "display_name": "🌐 VENOM Deep Research (Live Web Search & Knowledge Engine)",
+        "provider": "venom_engine",
+        "capabilities": ["web_search", "research", "citations", "chat", "streaming"],
+        "env_key_name": "",
         "is_enabled": 1,
         "is_free_tier": 1,
         "max_input_tokens": 8192,
         "max_output_tokens": 4096,
-    },
-    {
-        "id": "mdl_openrouter_llama",
-        "model_id": "meta-llama/llama-3.3-70b-instruct:free",
-        "display_name": "Llama 3.3 70B Instruct (via OpenRouter Free Tier)",
-        "provider": "openrouter",
-        "capabilities": ["chat", "code", "multilingual", "streaming"],
-        "env_key_name": "OPENROUTER_API_KEY",
-        "is_enabled": 1,
-        "is_free_tier": 1,
-        "max_input_tokens": 4096,
-        "max_output_tokens": 2048,
-    },
-    {
-        "id": "mdl_openrouter_qwen",
-        "model_id": "qwen/qwen-2.5-coder-32b-instruct:free",
-        "display_name": "Qwen 2.5 Coder 32B (via OpenRouter Free Tier)",
-        "provider": "openrouter",
-        "capabilities": ["code", "debugging", "chat", "streaming"],
-        "env_key_name": "OPENROUTER_API_KEY",
-        "is_enabled": 1,
-        "is_free_tier": 1,
-        "max_input_tokens": 4096,
-        "max_output_tokens": 2048,
     },
 ]
 
@@ -115,11 +104,12 @@ class DatabaseManager:
         now = utc_now()
         cur = conn.cursor()
 
-        # Seed default models
+        # Always keep configured_models strictly synced to Himanshu's own VENOM AI models
+        cur.execute("DELETE FROM configured_models")
         for m in DEFAULT_MODELS:
             cur.execute(
                 """
-                INSERT OR IGNORE INTO configured_models
+                INSERT INTO configured_models
                 (id, model_id, display_name, provider, capabilities_json, env_key_name, is_enabled, is_free_tier, max_input_tokens, max_output_tokens, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -140,26 +130,24 @@ class DatabaseManager:
 
         # Seed default system settings
         default_settings = {
-            "daily_request_limit_per_user": "100",
-            "max_upload_size_mb": "10",
-            "max_input_tokens": "4096",
-            "max_output_tokens": "2048",
-            "allow_fallback_to_local": "false",
-            "web_search_enabled": "true",
-            "code_sandbox_enabled": "true",
+            "daily_request_limit_per_user": "500",
+            "max_upload_mb": "10",
+            "max_input_chars": "16000",
+            "sandbox_timeout_seconds": "3.0",
+            "platform_owner": "Himanshu",
+            "platform_name": "VENOM AI",
+            "venom_custom_api_key": "venom_live_himanshu_official_api_v1",
         }
         for k, v in default_settings.items():
             cur.execute(
-                "INSERT OR IGNORE INTO system_settings (setting_key, setting_value, updated_at) VALUES (?, ?, ?)",
+                "INSERT OR REPLACE INTO system_settings (setting_key, setting_value, updated_at) VALUES (?, ?, ?)",
                 (k, v, now),
             )
 
-        # Seed Admin User (Himanshu) & Normal User
-        cur.execute("SELECT COUNT(*) as cnt FROM profiles")
-        if cur.fetchone()["cnt"] == 0:
+        # Seed default Admin User (Himanshu) and Demo Standard User
+        cur.execute("SELECT id FROM profiles WHERE email = 'himanshu@nova.ai'")
+        if not cur.fetchone():
             admin_id = "usr_admin_himanshu"
-            user_id = "usr_standard_demo"
-
             cur.execute(
                 """
                 INSERT INTO profiles (id, email, username, password_hash, role, is_active, created_at, updated_at)
@@ -170,79 +158,57 @@ class DatabaseManager:
             cur.execute(
                 """
                 INSERT INTO user_preferences (user_id, preferred_model, theme, language_pref, response_style, updated_at)
-                VALUES (?, 'nova-venom-core-v1', 'dark', 'Hinglish', 'balanced', ?)
+                VALUES (?, 'venom-pro-v1', 'dark', 'Hinglish', 'balanced', ?)
                 """,
                 (admin_id, now),
             )
-
-            cur.execute(
-                """
-                INSERT INTO profiles (id, email, username, password_hash, role, is_active, created_at, updated_at)
-                VALUES (?, ?, ?, ?, 'user', 1, ?, ?)
-                """,
-                (user_id, "user@nova.ai", "Aarav Sharma (User)", hash_password("User@123"), now, now),
-            )
-            cur.execute(
-                """
-                INSERT INTO user_preferences (user_id, preferred_model, theme, language_pref, response_style, updated_at)
-                VALUES (?, 'nova-venom-core-v1', 'dark', 'Hinglish', 'balanced', ?)
-                """,
-                (user_id, now),
-            )
-
-            # Seed sample multi-file project for Himanshu in Coding Studio
             proj_id = "proj_starter_venom"
             cur.execute(
                 """
                 INSERT INTO projects (id, user_id, name, description, primary_language, created_at, updated_at)
-                VALUES (?, ?, ?, ?, 'python', ?, ?)
+                VALUES (?, ?, 'Venom Core Starter App', 'Multi-file Python & Web starter workspace', 'python', ?, ?)
                 """,
-                (
-                    proj_id,
-                    admin_id,
-                    "NOVA-Venom Autonomous Agent Starter",
-                    "Multi-file Python & Web starter project in AI Coding Studio",
-                    now,
-                    now,
-                ),
+                (proj_id, admin_id, now, now),
             )
             starter_py = (
-                "# NOVA AI (Project: Venom AI) — Isolated Sandbox Script\n"
+                "# VENOM AI — Isolated Sandbox Starter\n"
                 "# Developed by Himanshu\n\n"
-                "def analyze_metrics(values):\n"
-                "    total = sum(values)\n"
-                "    mean = total / len(values)\n"
-                "    return {'count': len(values), 'sum': total, 'mean': round(mean, 2), 'max': max(values)}\n\n"
-                "data = [42, 88, 95, 67, 91, 104]\n"
-                "print('📊 Computed Metrics:', analyze_metrics(data))\n"
-            )
-            starter_html = (
-                "<!DOCTYPE html>\n<html>\n<head>\n<style>\n"
-                "body { font-family: sans-serif; background: #090d16; color: #f8fafc; text-align: center; padding: 40px; }\n"
-                ".card { background: #131c31; border: 1px solid #6366f1; border-radius: 14px; padding: 28px; max-width: 520px; margin: 0 auto; }\n"
-                "button { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; margin-top: 14px; }\n"
-                "</style>\n</head>\n<body>\n"
-                "  <div class='card'>\n"
-                "    <h2>⚡ NOVA AI Live Web Preview</h2>\n"
-                "    <p style='color:#94a3b8;margin-top:8px;'>Safely rendered inside isolated Coding Studio Sandbox</p>\n"
-                "    <button onclick=\"alert('Interactive Web Preview Working!')\">Test Interactive Button</button>\n"
-                "  </div>\n"
-                "</body>\n</html>"
+                "def calculate_growth(users: list[int]) -> dict:\n"
+                "    total = sum(users)\n"
+                "    avg = round(total / max(len(users), 1), 2)\n"
+                "    return {'total_users': total, 'average_daily': avg, 'peak': max(users)}\n\n"
+                "if __name__ == '__main__':\n"
+                "    metrics = calculate_growth([120, 245, 310, 490, 680])\n"
+                "    print('VENOM AI Analytics:', metrics)\n"
             )
             cur.execute(
                 """
                 INSERT INTO project_files (id, project_id, user_id, filename, language, content, size_bytes, created_at, updated_at)
                 VALUES (?, ?, ?, 'main.py', 'python', ?, ?, ?, ?)
                 """,
-                ("pfile_1", proj_id, admin_id, starter_py, len(starter_py), now, now),
+                ("pfile_starter_1", proj_id, admin_id, starter_py, len(starter_py), now, now),
+            )
+
+        cur.execute("SELECT id FROM profiles WHERE email = 'user@nova.ai'")
+        if not cur.fetchone():
+            std_id = "usr_standard_demo"
+            cur.execute(
+                """
+                INSERT INTO profiles (id, email, username, password_hash, role, is_active, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'user', 1, ?, ?)
+                """,
+                (std_id, "user@nova.ai", "Aarav Sharma (Standard User)", hash_password("User@123"), now, now),
             )
             cur.execute(
                 """
-                INSERT INTO project_files (id, project_id, user_id, filename, language, content, size_bytes, created_at, updated_at)
-                VALUES (?, ?, ?, 'index.html', 'html', ?, ?, ?, ?)
+                INSERT INTO user_preferences (user_id, preferred_model, theme, language_pref, response_style, updated_at)
+                VALUES (?, 'venom-pro-v1', 'dark', 'Hinglish', 'balanced', ?)
                 """,
-                ("pfile_2", proj_id, admin_id, starter_html, len(starter_html), now, now),
+                (std_id, now),
             )
+
+        # Ensure all existing users default to venom-pro-v1
+        cur.execute("UPDATE user_preferences SET preferred_model = 'venom-pro-v1'")
 
         conn.commit()
         conn.close()
@@ -273,7 +239,7 @@ class DatabaseManager:
         cur.execute(
             """
             INSERT INTO user_preferences (user_id, preferred_model, theme, language_pref, response_style, updated_at)
-            VALUES (?, 'nova-venom-core-v1', 'dark', 'Hinglish', 'balanced', ?)
+            VALUES (?, 'venom-pro-v1', 'dark', 'Hinglish', 'balanced', ?)
             """,
             (uid, now),
         )
@@ -291,7 +257,7 @@ class DatabaseManager:
             conn.close()
             return False, "Invalid email or password."
 
-        token = f"nvsess_{secrets.token_urlsafe(32)}"
+        token = f"vnmsess_{secrets.token_urlsafe(32)}"
         now = utc_now()
         expires = (datetime.utcnow() + timedelta(days=7)).isoformat() + "Z"
         cur.execute(
@@ -375,7 +341,7 @@ class DatabaseManager:
         cur = conn.cursor()
         cur.execute("SELECT setting_value FROM system_settings WHERE setting_key = 'daily_request_limit_per_user'")
         row = cur.fetchone()
-        daily_limit = int(row["setting_value"]) if row else 100
+        daily_limit = int(row["setting_value"]) if row else 500
 
         today_prefix = datetime.utcnow().strftime("%Y-%m-%d")
         cur.execute(
@@ -387,7 +353,7 @@ class DatabaseManager:
 
         stats = {"used_today": used_today, "daily_limit": daily_limit, "remaining": max(0, daily_limit - used_today)}
         if used_today >= daily_limit:
-            return False, f"Free-tier daily request limit reached ({used_today}/{daily_limit}). Please contact Admin or wait until UTC midnight.", stats
+            return False, f"Daily request limit reached ({used_today}/{daily_limit}).", stats
         return True, "ok", stats
 
     def record_usage(
