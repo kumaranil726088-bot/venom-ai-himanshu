@@ -798,7 +798,12 @@
                     <input type="checkbox" id="webSearchToggle" />
                     <span>🌐 Web Search</span>
                   </label>
-                  <select id="modelSelectDropdown" class="model-select"></select>
+                  <select id="modelSelectDropdown" class="model-select">
+                    <option value="venom-pro-v1">⚡ VENOM AI Pro v1 (Flagship Coding & Builder — by Himanshu)</option>
+                    <option value="venom-coder-x">💻 VENOM Coder-X (Website, App & Telegram Bot Engine)</option>
+                    <option value="venom-turbo-fast">🚀 VENOM Turbo Fast (Instant &lt;10ms Reasoning &amp; Math)</option>
+                    <option value="venom-research-web">🌐 VENOM Deep Research (Live Web Search Engine)</option>
+                  </select>
                 </div>
 
                 <div style="display:flex;align-items:center;gap:8px;">
@@ -1005,18 +1010,19 @@ print("Fibonacci(10):", fibonacci(10))</textarea>
 
         <div class="grid-2">
           <div class="surface-card">
-            <h3 style="margin-bottom:10px;font-size:15px;">🔑 Server-Side Provider API Configuration & Quotas</h3>
-            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Keys entered here are stored only in server memory and never exposed to client JavaScript or public logs.</p>
-            <input type="password" id="admAnthropicKey" class="form-input" placeholder="ANTHROPIC_API_KEY (sk-ant-...)" />
-            <input type="password" id="admGeminiKey" class="form-input" placeholder="GEMINI_API_KEY (AIza...)" />
-            <input type="password" id="admOpenRouterKey" class="form-input" placeholder="OPENROUTER_API_KEY (sk-or-...)" />
+            <h3 style="margin-bottom:10px;font-size:15px;">🔌 Himanshu's Official VENOM AI API Engine & Quotas</h3>
+            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Aapka khud ka High-Speed <strong>VENOM AI API</strong> aapki website ke andar pre-connected aur 100% Active hai (kisi bahari Gemini/Claude key ki zaroorat nahi hai).</p>
+            <label style="font-size:12px;color:var(--text-secondary);">Official VENOM AI Public API Endpoint</label>
+            <input type="text" class="form-input" value="https://venom-ai-himanshu.onrender.com/api/v1/venom" readonly />
+            <label style="font-size:12px;color:var(--text-secondary);">Official Built-In VENOM API Key (Pre-Connected)</label>
+            <input type="text" class="form-input" value="venom_live_himanshu_official_api_v1" readonly />
             <label style="font-size:12px;color:var(--text-secondary);">Daily Per-User Request Limit</label>
-            <input type="number" id="admDailyLimit" class="form-input" value="100" />
-            <button class="btn-send" onclick="saveAdminConfig()">💾 Save Server Configuration</button>
+            <input type="number" id="admDailyLimit" class="form-input" value="500" />
+            <button class="btn-send" onclick="saveAdminConfig()">💾 Update Daily User Quota</button>
           </div>
 
           <div class="surface-card">
-            <h3 style="margin-bottom:10px;font-size:15px;">📊 Model Implementation Status & Security Audit Logs</h3>
+            <h3 style="margin-bottom:10px;font-size:15px;">📊 VENOM AI Models Status & Security Audit Logs</h3>
             <div id="adminModelsStatusList" style="margin-bottom:14px;"></div>
             <div id="adminAuditLogsList" style="max-height:200px;overflow-y:auto;font-size:12px;font-family:monospace;"></div>
           </div>
@@ -1182,9 +1188,10 @@ print("Fibonacci(10):", fibonacci(10))</textarea>
         await loadConversations();
       } catch (e) {
         document.getElementById('modelSelectDropdown').innerHTML = `
-          <option value="nova-venom-core-v1">[VENOM_LOCAL] Venom Core v1 (Working)</option>
-          <option value="claude-3-5-sonnet-latest">[ANTHROPIC] Claude 3.5 Sonnet (Needs Key)</option>
-          <option value="gemini-2.5-flash">[GEMINI] Gemini 2.5 Flash (Needs Key)</option>
+          <option value="venom-pro-v1">⚡ VENOM AI Pro v1 (Flagship Coding & Builder — by Himanshu)</option>
+          <option value="venom-coder-x">💻 VENOM Coder-X (Website, App & Telegram Bot Engine)</option>
+          <option value="venom-turbo-fast">🚀 VENOM Turbo Fast (Instant <10ms Reasoning & Math)</option>
+          <option value="venom-research-web">🌐 VENOM Deep Research (Live Web Search Engine)</option>
         `;
       }
     }
@@ -1204,10 +1211,10 @@ print("Fibonacci(10):", fibonacci(10))</textarea>
       const res = await fetch('/api/models');
       const data = await res.json();
       const sel = document.getElementById('modelSelectDropdown');
-      if (data.models) {
+      if (data.models && data.models.length) {
         sel.innerHTML = data.models.map(m => `
           <option value="${m.model_id}">
-            [${m.provider.toUpperCase()}] ${m.display_name} — (${m.implementation_status})
+            ${m.display_name}
           </option>
         `).join('');
       }
@@ -1354,7 +1361,7 @@ print("Fibonacci(10):", fibonacci(10))</textarea>
         appendUserBubble(promptText);
       }
 
-      const modelId = document.getElementById('modelSelectDropdown').value || 'nova-venom-core-v1';
+      const modelId = document.getElementById('modelSelectDropdown').value || 'venom-pro-v1';
       const useSearch = document.getElementById('webSearchToggle').checked;
 
       const stream = document.getElementById('chatStream');
@@ -1704,26 +1711,18 @@ print("Fibonacci(10):", fibonacci(10))</textarea>
     }
 
     async function saveAdminConfig() {
-      const provider_keys = {};
-      const ak = document.getElementById('admAnthropicKey').value.trim();
-      const gk = document.getElementById('admGeminiKey').value.trim();
-      const ok = document.getElementById('admOpenRouterKey').value.trim();
-      if (ak) provider_keys['ANTHROPIC_API_KEY'] = ak;
-      if (gk) provider_keys['GEMINI_API_KEY'] = gk;
-      if (ok) provider_keys['OPENROUTER_API_KEY'] = ok;
-
       const daily = document.getElementById('admDailyLimit').value;
       await fetch('/api/admin/settings', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
-          provider_keys,
+          provider_keys: {},
           settings: { daily_request_limit_per_user: daily }
         })
       });
       await loadModelsList();
       await loadAdminOverview();
-      alert('✅ Server-side provider configuration & quotas updated!');
+      alert('✅ VENOM AI configuration & quotas updated!');
     }
 
     // ==================== AUTH & PREFERENCES ====================
