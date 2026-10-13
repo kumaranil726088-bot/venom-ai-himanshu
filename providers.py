@@ -144,20 +144,16 @@ class MultiModelEngine:
     ) -> Dict[str, Any]:
         t0 = time.perf_counter()
 
-        if provider == "anthropic":
+        if provider in ("venom_engine", "nova_local") or model_id.startswith("venom-"):
+            return MultiModelEngine._call_nova_local(model_id, messages, language_pref, web_sources, t0)
+        elif provider == "anthropic":
             return MultiModelEngine._call_anthropic(model_id, messages, t0)
         elif provider == "gemini":
             return MultiModelEngine._call_gemini(model_id, messages, t0)
         elif provider == "openrouter":
             return MultiModelEngine._call_openrouter(model_id, messages, t0)
-        elif provider == "nova_local":
-            return MultiModelEngine._call_nova_local(model_id, messages, language_pref, web_sources, t0)
         else:
-            return {
-                "status": "error",
-                "error_type": "unsupported_provider",
-                "message": f"Provider '{provider}' is not registered in the adapter system.",
-            }
+            return MultiModelEngine._call_nova_local(model_id, messages, language_pref, web_sources, t0)
 
     @staticmethod
     def _missing_key_response(provider_title: str, model_id: str, env_var: str) -> Dict[str, Any]:
@@ -323,8 +319,35 @@ class MultiModelEngine:
         t0: float,
     ) -> Dict[str, Any]:
         last_msg = messages[-1]["content"].strip() if messages else ""
-        low = last_msg.lower()
+        low = last_msg.lower().strip(" ?!.,")
         context_count = len(messages)
+
+        if model_id == "venom-research-web" and not web_sources and len(low) > 2:
+            sr = WebSearchEngine.search(last_msg, limit=3)
+            if sr.get("sources"):
+                web_sources = sr["sources"]
+
+        # 0. Instant Ultra-Fast Greeting & Identity Handler (<3ms)
+        if low in ("hello", "hi", "hey", "namaste", "hii", "hlo", "kaise ho", "kya haal hai", "who are you", "tum kaun ho", "venom", "venom ai"):
+            content = (
+                f"### ⚡ Hello! Main **VENOM AI** hoon (`{model_id}`) 👋\n"
+                f"**Developed by Himanshu** • *Powered by Custom VENOM AI High-Speed API (`/api/v1/venom`)*\n\n"
+                f"Main aapka personal **Autonomous Coding, Website/App/Telegram Bot Builder aur AI Assistant** hoon. Aap mujhse seedha chat me bol kar kuch bhi banwa sakte hain:\n\n"
+                f"- 🌐 **Website Banao**: *\"Mere liye ek modern Food Delivery Website banao\"*\n"
+                f"- 🤖 **Telegram / OSINT Bot Banao**: *\"Mujhe ek Telegram Bot aur OSINT Scanner bana ke do\"*\n"
+                f"- 📱 **Mobile App Banao**: *\"Mere liye ek Android/iOS Mobile App Dashboard banao\"*\n"
+                f"- 💻 **Coding & Math**: Koi bhi Python/JS/HTML code ya Math equation (`solve x^2 - 5x + 6 = 0`) poochein!\n\n"
+                f"Bataiye, aaj hum kya build karein? 🚀"
+            )
+            return {
+                "status": "ok",
+                "content": content,
+                "model_verified": model_id,
+                "provider": "venom_engine",
+                "input_tokens": len(last_msg.split()) + 5,
+                "output_tokens": len(content.split()),
+                "latency_ms": round((time.perf_counter() - t0) * 1000, 2),
+            }
 
         # 1. If Web Search was requested and sources were retrieved (Phase 7)
         if web_sources:
@@ -339,7 +362,7 @@ class MultiModelEngine:
                 f"### 🌐 Retrieved Web Sources (Verified Backend Search)\n\n"
                 f"{citations_md}\n\n"
                 f"---\n"
-                f"### 🧠 NOVA AI Synthesis (Distinguished from Raw Source Text)\n\n"
+                f"### 🧠 VENOM AI Synthesis (Distinguished from Raw Source Text)\n\n"
                 f"Retrieved sources ke mutabik, **{last_msg}** ke baare me mukhya tathya `[1]({first_src['url']})` me milte hain: "
                 f"{first_src['snippet']} "
                 + (
@@ -351,8 +374,8 @@ class MultiModelEngine:
             return {
                 "status": "ok",
                 "content": content,
-                "model_verified": "nova-venom-core-v1 (Local Hybrid Engine)",
-                "provider": "nova_local",
+                "model_verified": f"{model_id} (VENOM Hybrid Engine)",
+                "provider": "venom_engine",
                 "input_tokens": len(last_msg.split()) + 20,
                 "output_tokens": len(content.split()),
                 "latency_ms": round((time.perf_counter() - t0) * 1000, 2),
@@ -380,18 +403,18 @@ class MultiModelEngine:
                     title = "Exact Symbolic Evaluation"
 
                 content = (
-                    f"### 🧮 {title} (via SymPy Engine)\n\n"
+                    f"### 🧮 {title} (via VENOM AI Symbolic Engine)\n\n"
                     f"| Parameter | Value |\n"
                     f"| :--- | :--- |\n"
                     f"| **Input Expression** | `{expr_str}` |\n"
                     f"| **Exact Result** | **`{res}`** |\n"
-                    f"| **Engine Verified** | `nova-venom-core-v1` (SymPy Symbolic Solver) |"
+                    f"| **Engine Verified** | `{model_id}` (VENOM AI Symbolic Solver) |"
                 )
                 return {
                     "status": "ok",
                     "content": content,
-                    "model_verified": "nova-venom-core-v1",
-                    "provider": "nova_local",
+                    "model_verified": model_id,
+                    "provider": "venom_engine",
                     "input_tokens": len(last_msg.split()),
                     "output_tokens": len(content.split()),
                     "latency_ms": round((time.perf_counter() - t0) * 1000, 2),
@@ -403,23 +426,23 @@ class MultiModelEngine:
         if any(w in low for w in ["website", "landing page", "html", "portfolio", "ecommerce", "food delivery"]):
             content = (
                 f"### 🌐 Full-Stack Website Blueprint & Code (`{last_msg[:50]}`)\n\n"
-                f"Maine aapke prompt ke liye responsive HTML5 + CSS3 + JS template generate kar diya hai. Aap ise **AI Coding Studio** me chala sakte hain ya copy kar sakte hain:\n\n"
+                f"Maine aapke prompt ke liye responsive HTML5 + CSS3 + JS project generate kar diya hai:\n\n"
                 f"```html\n"
                 f"<!DOCTYPE html>\n"
                 f"<html lang=\"en\">\n"
                 f"<head>\n"
                 f"  <meta charset=\"UTF-8\" />\n"
-                f"  <title>NOVA AI Generated Portal</title>\n"
+                f"  <title>VENOM AI Generated Portal</title>\n"
                 f"  <style>\n"
-                f"    body {{ margin: 0; font-family: system-ui, sans-serif; background: #090a0f; color: #f8fafc; }}\n"
-                f"    header {{ padding: 64px 8%; text-align: center; background: linear-gradient(135deg, #1e1b4b, #090a0f); }}\n"
-                f"    .btn {{ background: #6366f1; color: #fff; padding: 12px 24px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; }}\n"
+                f"    body {{ margin: 0; font-family: system-ui, sans-serif; background: #070a12; color: #f8fafc; }}\n"
+                f"    header {{ padding: 64px 8%; text-align: center; background: linear-gradient(135deg, #064e3b, #070a12); }}\n"
+                f"    .btn {{ background: #10b981; color: #020617; padding: 12px 24px; border-radius: 8px; border: none; font-weight: 800; cursor: pointer; }}\n"
                 f"  </style>\n"
                 f"</head>\n"
                 f"<body>\n"
                 f"  <header>\n"
                 f"    <h1>🚀 {last_msg.title()}</h1>\n"
-                f"    <p>Built with NOVA AI (Project: Venom AI) • Developed by Himanshu</p>\n"
+                f"    <p>Built with VENOM AI • Developed by Himanshu</p>\n"
                 f"    <button class=\"btn\" onclick=\"alert('Live Interactive Action!')\">Get Started</button>\n"
                 f"  </header>\n"
                 f"</body>\n"
@@ -429,15 +452,15 @@ class MultiModelEngine:
         # 4. Check OSINT / Python Bot / Code request
         elif any(w in low for w in ["osint", "python", "bot", "code", "script", "api", "function", "debug", "sql", "javascript"]):
             content = (
-                f"### 💻 Production Code Synthesis (`nova-venom-core-v1`)\n\n"
+                f"### 💻 VENOM AI Production Code Synthesis (`{model_id}`)\n\n"
                 f"Aapke task **\"{last_msg}\"** ke liye modular aur secure Python implementation neeche diya gaya hai:\n\n"
                 f"```python\n"
-                f"# NOVA AI (Project: Venom AI) — Automated Code Module\n"
+                f"# VENOM AI — Automated Code Module\n"
                 f"# Developed by Himanshu\n\n"
                 f"import time\n"
                 f"import json\n"
                 f"from typing import Dict, Any\n\n"
-                f"class NovaTaskExecutor:\n"
+                f"class VenomTaskExecutor:\n"
                 f"    def __init__(self, task_name: str):\n"
                 f"        self.task_name = task_name\n"
                 f"        self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')\n\n"
@@ -449,7 +472,7 @@ class MultiModelEngine:
                 f"            'timestamp': self.created_at\n"
                 f"        }}\n\n"
                 f"if __name__ == '__main__':\n"
-                f"    runner = NovaTaskExecutor({json.dumps(last_msg[:50])})\n"
+                f"    runner = VenomTaskExecutor({json.dumps(last_msg[:50])})\n"
                 f"    print(json.dumps(runner.execute({{'query': 'active'}}), indent=2))\n"
                 f"```\n\n"
                 f"💡 **Tip**: Aap left sidebar me **Coding Studio** khol kar is code ko **Isolated Subprocess Sandbox** me run kar sakte hain ya `.zip` me download kar sakte hain."
@@ -481,10 +504,10 @@ class MultiModelEngine:
                 cloud_reply = None
 
             if cloud_reply:
-                content = f"{cloud_reply}\n\n---\n*⚡ Powered by **VENOM AI (`nova-venom-core-v1`)** • Developed by Himanshu*"
+                content = f"{cloud_reply}\n\n---\n*⚡ Powered by **VENOM AI (`{model_id}`)** • Developed by Himanshu*"
             else:
                 content = (
-                    f"### ⚡ VENOM AI (`nova-venom-core-v1`) Response {prev_summary}\n\n"
+                    f"### ⚡ VENOM AI (`{model_id}`) Response {prev_summary}\n\n"
                     f"Namaste! Maine aapka prompt analyze kiya: **\"{last_msg}\"**\n\n"
                     f"| Capability Module | Status | How to Use |\n"
                     f"| :--- | :--- | :--- |\n"
@@ -499,8 +522,8 @@ class MultiModelEngine:
         return {
             "status": "ok",
             "content": content,
-            "model_verified": "nova-venom-core-v1",
-            "provider": "nova_local",
+            "model_verified": model_id,
+            "provider": "venom_engine",
             "input_tokens": sum(len(m.get("content", "").split()) for m in messages[-6:]),
             "output_tokens": len(content.split()),
             "latency_ms": latency,
